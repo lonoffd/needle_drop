@@ -1,0 +1,4 @@
+*.pyc
+.idea/*
+templates/static_index.html
+templates/static_video.html
