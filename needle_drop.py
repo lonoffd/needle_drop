@@ -1,7 +1,7 @@
 from flask import Flask, render_template
 import random
 import json
-import urllib
+import requests
 import isodate
 import os
 
@@ -17,6 +17,7 @@ PLAYLISTS = [
     ]
 
 app = Flask(__name__)
+app.config["DEBUG"] = True
 
 def cached(f):
     cache = {}
@@ -35,11 +36,9 @@ def get_video_info(video_id):
     returns a dict with the important video metadata
     video_id is the part of the url in the youtube video
     """
-    print "Getting video stuff"
     base_url = "https://www.googleapis.com/youtube/v3/videos"
     search_url= "{}?id={}&key={}&part=snippet,contentDetails".format(base_url, video_id, API_KEY)
-    response = urllib.urlopen(search_url).read()
-    data = json.loads(response)
+    data = requests.get(search_url).json()
     duration_string = data['items'][0]['contentDetails']['duration']
     duration_seconds = int(isodate.parse_duration(duration_string).total_seconds())
     title_string = data['items'][0]['snippet']['title']
@@ -55,11 +54,9 @@ def get_playlist_videos(playlist_id):
     the playlist_id is PLCD0445C57F2B7F41
     :return: list of video id strings
     """
-    print "Getting playlist stuff"
     base_url = "https://www.googleapis.com/youtube/v3/playlistItems"
     search_url = "{}?playlistId={}&key={}&part=snippet&maxResults=50".format(base_url, playlist_id, API_KEY)
-    response = urllib.urlopen(search_url).read()
-    data = json.loads(response)
+    data = requests.get(search_url).json()
     total_videos = data['pageInfo']['totalResults']
 
     video_list = []
@@ -70,8 +67,7 @@ def get_playlist_videos(playlist_id):
     while len(video_list) < total_videos:
         next_token = data['nextPageToken']
         new_search_url = "{}&pageToken={}".format(search_url, next_token)
-        response = urllib.urlopen(new_search_url).read()
-        data = json.loads(response)
+        data = requests.get(new_search_url).json()
         for video in data['items']:
             video_list.append(video['snippet']['resourceId']['videoId'])
 
@@ -91,6 +87,7 @@ def index():
 
 @app.route("/<playlist_id>")
 def playlist(playlist_id):
+
     playlist = get_playlist_videos(playlist_id)
     video_id = random.choice(playlist)
     video_info = get_video_info(video_id)
@@ -98,7 +95,7 @@ def playlist(playlist_id):
     youtube_link = video_url(video_id, time_start)
 
     return render_template("video.html", list_id=playlist_id,
-                           youtubelink=youtube_link, videoname=video_info['name'], playlists=PLAYLISTS)
+                          youtubelink=youtube_link, videoname=video_info['name'], playlists=PLAYLISTS)
 
 if __name__ == "__main__":
     app.run()
